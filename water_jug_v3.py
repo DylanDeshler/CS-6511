@@ -47,18 +47,14 @@ def heuristic(current_state, capacities, goal):
 
     # Helper definitions for the heuristic calculation
     current_distance = goal - current_state[0]
-    next_distance = current_distance - max(current_state[1:])
-
-    # If adding the max capacities surpasses the goal then take abs for positive distance
-    if current_state[0] < goal < current_state[0] + max(capacities[1:]):
-        next_distance = abs(goal - current_state[0] - max(current_state[1:]))
+    next_distance = abs(goal - current_state[0] - max(current_state[1:]))
     
     # If we're two steps from the goal
     for capacity in capacities[1:]:
         if goal == current_state[0] + max(current_state[1:]) + capacity:
             return (current_distance + next_distance) / 2 / goal
 
-    # Return the best guess of distance to the goal using the calculated next step
+    # Make a best guess of distance to the goal using the calculated next step
     # Using next_distance maintains admissable and consistent (I get non-optimal results otherwise)
     return (current_distance + next_distance) / goal
 
