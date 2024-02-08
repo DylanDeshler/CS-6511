@@ -3,6 +3,8 @@ import heapq
 from functools import reduce
 import numpy as np
 import time
+import sys
+import os
 
 def is_goal(current_state, goal):
     """
@@ -42,7 +44,7 @@ def heuristic(current_state, capacities, goal):
     for index in range(1, len(capacities)):
         if goal == current_state[0] + current_state[index]:
             return 1 / goal
-    
+
     # Helper definitions for the heuristic calculation
     current_distance = goal - current_state[0]
     next_distance = current_distance - max(current_state[1:])
@@ -57,6 +59,7 @@ def heuristic(current_state, capacities, goal):
             return (current_distance + next_distance) / 2 / goal
 
     # Return the best guess of distance to the goal using the calculated next step
+    # Using next_distance maintains admissable and consistent (I get non-optimal results otherwise)
     return (current_distance + next_distance) / goal
 
 def generate_successors(current_state, capacities):
@@ -98,12 +101,9 @@ def generate_successors(current_state, capacities):
             if i == j:
                 continue
              
-            # Pour from one jug into another
-            if water_amount >= capacities[j] - other_amount and capacities[j] - other_amount >= 0:
-                children.append(update(current_state, i, -(capacities[j] - other_amount), j, capacities[j] - other_amount))
-            
-            elif water_amount < capacities[j] - other_amount:
-                children.append(update(current_state, i, -water_amount, j, water_amount))
+            # Pour what you can from one jug into another
+            delta = min(water_amount, capacities[j] - other_amount)
+            children.append(update(current_state, i, -delta, j, delta))
     
     return children
 
@@ -127,27 +127,35 @@ def search(capacities, goal):
         # print(current_state)
         # input()
         
+        # problem is symmetrical to this, helps discount a lot of states and speed up
         if current_state[0] > goal:
             continue
+
+        # don't search the same state twice
         if tuple(current_state) in closed:
             continue
-
+        
+        # woo we found the goal!
         if is_goal(current_state, goal):
             return current_cost
         
         while frontier:
             _ = heapq.heappop(frontier)
 
+        # populate with child states
         closed.add(tuple(current_state))
         for next_state in generate_successors(current_state, capacities):
             total_cost = current_cost + 1 + heuristic(next_state, capacities, goal)
             heapq.heappush(frontier, (total_cost, current_cost + 1 , next_state))
 
+    # no goal found
     return -1
 
 def generate_test_cases(n_states, low=1, high=200):
     """
     n_states: integer defining the number of non-goal states for the problem to have
+    low: lower bound for capacities
+    high: upper bound for capacities
 
     Generates random test cases
     """
@@ -158,40 +166,35 @@ def generate_test_cases(n_states, low=1, high=200):
 
 if __name__ == '__main__':
     # Random test cases
-    # for i in range(1, 10):
-    #     print('________________________________________________________________')
-    #     print(f'{i} non-goal states')
-    #     times = []
-    #     for _ in range(10):
-    #         capacities, goal_states = generate_test_cases(i)
+    if sys.argv[1] == 'random':
+        for i in range(1, 10):
+            print('________________________________________________________________')
+            print(f'{i} non-goal states')
+            times = []
+            for _ in range(10):
+                capacities, goal_states = generate_test_cases(i)
 
-    #         print(goal_states, ' | ', capacities)
-    #         t0 = time.time()
-    #         path = search(capacities, goal_states)
-    #         t1 = time.time()
-    #         times.append(t1 - t0)
-    #         if path == -1:
-    #             print('We made an error, all generated test cases are solvable!!')
-    #         else:
-    #             print(f'Optimal path is of length {path} in {t1 - t0} seconds')
-        
-    #     print(f'Average time taken: {np.mean(times)}')
+                print(goal_states, ' | ', capacities)
+                t0 = time.time()
+                path = search(capacities, goal_states)
+                t1 = time.time()
+                times.append(t1 - t0)
+                if path == -1:
+                    print('We made an error, all generated test cases shoudl be solvable')
+                else:
+                    print(f'Optimal path is of length {path} in {t1 - t0} seconds')
+            
+            print(f'Average time taken: {np.mean(times)}')
 
-    # Provided test cases
-    paths = [
-        r'C:\Users\ddeshler\Desktop\ai\cat input1.txt', 
-        r'C:\Users\ddeshler\Desktop\ai\cat input2.txt', 
-        r'C:\Users\ddeshler\Desktop\ai\cat input3.txt', 
-        r'C:\Users\ddeshler\Desktop\ai\cat input4.txt'
-        ]
-    
-    for path in paths:
+    else:
+        path = sys.argv[1]
+        assert os.path.exists(path), f'path {path} must exist and point to a suitable test case (make sure there are no spaces or illegal characters in the path)'
+
         with open(path) as f:
             lines = f.readlines()
             capacities = [int(1e9)] + [int(i) for i in lines[0].split(',')]
             goal_states = int(lines[1])
 
-            print(goal_states, ' | ', capacities)
             t0 = time.time()
             path = search(capacities, goal_states)
             t1 = time.time()
